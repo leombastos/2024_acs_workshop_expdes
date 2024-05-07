@@ -7,12 +7,30 @@ format:
     toc: true
     number-sections: false
     theme: cyborg 
+    fontsize: 1.2em
+    monobackgroundcolor: white
 knitr: 
   opts_chunk:
     fig.align: center
 ---
 
+# Notes  
 This script was developed by Dr. Leonardo Bastos for the **2024 ACS Workshop - Designing and Analyzing Agricultural Studies: intro and example in R**, conducted on May 10th 2024.
+
+- The **slides** can be found here: https://leombastos.github.io/bastoslab/teaching/2024-acs/2024-acs-deck.html#/title-slide
+
+- The **rendered version of this script** can be found here: https://leombastos.github.io/bastoslab/teaching/2024-acs/2024-acsworkshop-rcbd-Bastos.html
+
+::: {.callout-important}
+A few points before we start:  
+
+  - Use the Outline to navigate  
+  - This is not an intro to R workshop.  
+  - This workshop assumes you are familiar with R, RStudio, quarto scripts, chunks, data wrangling with `dplyr`/`tidyr`, plotting with `ggplot2`.  
+  - If this is your first time using R, you will likely run into issues.  
+  - If you are unable to code along, feel free to just follow along and don't worry about the code part.  
+  
+:::
 
 
 # Introduction  
@@ -132,8 +150,7 @@ To account for more than one variance component (i.e., random effects and error)
 options(contrasts = c("contr.sum", "contr.poly"))
 
 # Model fitting
-rcbd_mix_mod <- lmer(yield_kgha ~ (1|rep) + nrate_kgha*krate_kgha, 
-              data = rcbd_dfw)
+rcbd_mix_mod 
 
 rcbd_mix_mod
 ```
