@@ -1,0 +1,359 @@
+---
+title: "2024 ACS Workshop - Designing and Analyzing Agricultural Studies: intro and example in R"
+format:
+  html:
+    code-fold: false
+    embed-resources: true
+    toc: true
+    number-sections: false
+    theme: cyborg 
+knitr: 
+  opts_chunk:
+    fig.align: center
+---
+
+This script was developed by Dr. Leonardo Bastos for the **2024 ACS Workshop - Designing and Analyzing Agricultural Studies: intro and example in R**, conducted on May 10th 2024.
+
+
+# Introduction  
+The goals of this script are to:  
+
+- Create an analytical workflow for an **RCBD** with **random blocks**, from data import through publication-ready plot  
+
+- Understand each of its components  
+
+# Study details  
+**Objectives**: Our objective is to assess the effect of different N and K fertilizer rates on crop grain yield.  
+
+**Treatment** design: **3 N rate x 3 K rate**.  
+
+**Experimental** design: **randomized complete block design** with four blocks.  
+
+# a) Setup  
+Here is where we load the packages we will use.  
+```{r setup}
+#| message: false
+#install.packages("easypackages")
+
+# Loading packages
+library(easypackages)
+packages("dplyr") # for data wrangling
+packages("tidyr") # for data wrangling 
+packages("ggplot2") # for plotting
+packages("car") # for Anova function
+packages("lme4") # for mixed-effect ANOVA model  
+packages("broom.mixed") # for model residuals extraction
+packages("emmeans") # for model mean extraction
+packages("multcomp") # for pairwise comparison letter display
+```
+
+
+Let's import the data.  
+```{r data import}
+rcbd_df <- read.csv("../data/wheat_nk_bamyan.csv")
+
+rcbd_df
+```
+
+We have **36 rows** (9 treatments x 4 blocks).  
+
+# b) Explortory data analysis (EDA) - tables  
+```{r summary}
+summary(rcbd_df)
+```
+
+Checking variable classes.  
+```{r glimpse}
+glimpse(rcbd_df)
+```
+# c) Wrangling  
+Need to transform rep, N rate and K rate into factor (for analysis of variance).  
+
+```{r rcbd_dfw}
+rcbd_dfw <- rcbd_df %>%
+  mutate(rep = factor(rep),
+         nrate_kgha = factor(nrate_kgha),
+         krate_kgha = factor(krate_kgha) 
+         ) 
+
+rcbd_dfw
+```
+
+Checking summary.
+```{r rcbd_dfw summary }
+summary(rcbd_dfw)
+```
+Number of replicates: 4  
+Number o treatments: 3 N rates x 3 K rates = 9  
+Number of observations: 4 x 9 = 36  
+Yield: from 912 to 7232 kg/ha  
+
+# d) EDA plots  
+N rate boxplots.  
+```{r n boxplot}
+ggplot(rcbd_dfw, aes(x = nrate_kgha, 
+                    y = yield_kgha,
+                    color = nrate_kgha)) +
+  geom_boxplot() +
+  geom_jitter() +
+  theme(legend.position = "none")
+```
+
+K rate boxplots.  
+```{r k boxplot}
+ggplot(rcbd_dfw, aes(x = krate_kgha, 
+                    y = yield_kgha,
+                    color = krate_kgha)) +
+  geom_boxplot() +
+  geom_jitter() +
+  theme(legend.position = "none")
+```
+
+N x K interaction boxplots  
+```{r nk boxplot}
+ggplot(rcbd_dfw, aes(x = nrate_kgha, 
+                    y = yield_kgha,
+                    color = nrate_kgha)) +
+  geom_boxplot() +
+  geom_jitter() +
+  facet_grid(.~krate_kgha) +
+  theme(legend.position = "none")
+```
+
+# e) Statistical model  
+
+To treat **blocks as random effect**, we will need to use a function that accomodates fixed and random effects.  
+
+To account for more than one variance component (i.e., random effects and error), we can use function `lmer()` from package `lme4`.  
+
+
+```{r model}
+# Changing to sum-to-zero contrast
+options(contrasts = c("contr.sum", "contr.poly"))
+
+# Model fitting
+rcbd_mix_mod <- lmer(yield_kgha ~ (1|rep) + nrate_kgha*krate_kgha, 
+              data = rcbd_dfw)
+
+rcbd_mix_mod
+```
+
+# f) ANOVA table  
+```{r ANOVA}
+Anova(rcbd_mix_mod, type = 3)
+```
+
+Notice how rep (i.e., block in this case) does not appear in the ANOVA table above. That's because it only displays **fixed effects**.
+
+Since only the **main effects (N and K) are significant**, and not the interaction, we should extract means and perform pairwise comparisons for the main effects only.  
+
+Before we do that, let's check our model assumptions. 
+
+A model is only valid for inference (i.e., means and pwc) IF it fulfills the linear model assumptions.  
+
+# g) Linear model assumptions  
+## Extracting residuals
+First, let's extract our model residuals, and also create studentized residuals.  
+
+```{r rcbd_mix_resid}
+rcbd_mix_resid <- augment(rcbd_mix_mod) %>%
+  mutate(.studresid = rstudent(rcbd_mix_mod))
+
+rcbd_mix_resid
+```
+
+Now, let's recap the linear model assumptions:  
+
+- Independence (no pattern)  
+- Variance homogeneity (homoscedasticity)  
+- Normality  
+- Outlier detection (< -3 or > 3)  
+
+One difference in mixed models is that the 3 first assumptions are also applied to the **random effects**, so we need to check it for them as well.  
+
+### Random effects are iid ~ N(0,var_a)  
+```{r randeff_rep}
+randeff_rep <- ranef(rcbd_mix_mod)[[1]]
+
+randeff_rep
+```
+
+For random effects with so few levels (i.e., 4 since that's the number of blocks), the QQ plot is one of the only ways to check for assumptions on random effects.  
+
+```{r QQ plot for random effects}
+ggplot(randeff_rep, aes(sample = `(Intercept)`)) +
+  stat_qq(shape = 21,
+          fill = "purple", 
+          size = 3,
+          alpha = .7
+  ) +
+  stat_qq_line() +
+  labs(x = "Theoretical quantile",
+       y = "Sample quantile") +
+  theme_bw()
+```
+Nothing to worry here, especially since we only have 4 points.  
+
+### Within-group errors are iid ~ N(0, var_e)  
+```{r }
+ggplot(rcbd_mix_resid, 
+       aes(x = .fitted, 
+           y = .studresid)) +
+  geom_hline(yintercept = 0, 
+             color = "red") +
+  geom_point(shape = 21,
+             fill = "purple", 
+             size = 3,
+             alpha = .7) +
+  geom_smooth() +
+  geom_hline(yintercept = c(-3,3), 
+             color = "red") +
+  theme_bw()
+```
+
+- **Independence**: no pattern observed, points appear to be random, looks good.    
+
+- **Variance homoscedastic**: seems constant across the x-axis (blue smooth line and confidence error ribbon touching 0 on the y-axis throughout the x-axis range), looks good.    
+
+- **Outliers**: nothing outside the -3,3 boundaries, looks good.  
+
+
+```{r}
+ggplot(rcbd_mix_resid, 
+       aes(sample = .studresid)) +
+  stat_qq(shape = 21,
+          fill = "purple", 
+          size = 3,
+          alpha = .7) +
+  stat_qq_line() +
+  labs(x = "Theoretical quantile",
+       y = "Sample quantile") +
+  theme_bw()
+```
+
+```{r}
+ggplot(rcbd_mix_resid, 
+       aes(x = .studresid)) +
+  geom_density(color = "black",
+               fill = "purple",
+               alpha = .7) +
+  scale_x_continuous(breaks = c(-3,0,3), 
+                     limits = c(-4,4)) +
+  theme_bw()
+
+```
+
+- **Normality**: residuals seem normal.  
+
+# h) Model means  
+The next step in the workflow is extracting the model means.  
+
+Since our main effects were the only significant terms, we'll extract the means for N and K separately.  
+
+N rate means:
+```{r N means}
+rcbd_mix_means_n <- emmeans(rcbd_mix_mod, ~nrate_kgha)
+
+rcbd_mix_means_n
+```
+
+K rate means:
+```{r K means}
+rcbd_mix_means_k <- emmeans(rcbd_mix_mod, ~krate_kgha)
+
+rcbd_mix_means_k
+```
+
+# i) Pairwise comparisons  
+Now that we extracted means, let's perform pairwise comparisons among them.  
+
+N pairwise comparison:  
+```{r N pwc }
+rcbd_mix_pwc_n <- cld(rcbd_mix_means_n, 
+                   reversed = T, 
+                   adjust = "none",
+               Letters = letters) %>%
+  as.data.frame() %>%
+  mutate(letter = trimws(.group))
+
+rcbd_mix_pwc_n
+```
+
+K pairwise comparison:  
+```{r K pwc }
+rcbd_mix_pwc_k <- cld(rcbd_mix_means_k, 
+                   reversed = T, 
+                   adjust = "none",
+               Letters = letters) %>%
+  as.data.frame() %>%
+  mutate(letter = trimws(.group))
+
+rcbd_mix_pwc_k
+```
+
+# g) Final plots  
+Let's plot our results, including both **raw data** (for allowing our audience to inspect data distribution) and **statistical model summary (i.e., letter separation)** for inference purposes.    
+
+Let's make these plots publication ready.  
+
+
+For N rates:  
+```{r rcbd N final plot}
+ggplot(mapping = aes(fill = nrate_kgha)) +
+  # Raw data and boxplots  
+  geom_boxplot(data = rcbd_dfw,
+               aes(x = nrate_kgha, 
+                   y = yield_kgha),
+               alpha = .8) +
+  geom_jitter(data = rcbd_dfw,
+               aes(x = nrate_kgha, 
+                   y = yield_kgha),
+              shape = 21,
+              size = 3,
+              alpha = .6) +
+  # Adding letters
+  geom_label(data = rcbd_mix_pwc_n,
+            aes(x = nrate_kgha, 
+                y = emmean, 
+                label = letter),
+            fill = "white") +
+  labs(x = "N rate (kg/ha)",
+       y = "Yield (kg/ha)") +
+  scale_fill_viridis_d() +
+  theme(panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        legend.position = "none")
+
+```
+
+For K rates:
+```{r rcbd K final plot}
+ggplot(mapping = aes(fill = krate_kgha))+
+  # Raw data and boxplots  
+  geom_boxplot(data = rcbd_dfw,
+               aes(x = krate_kgha, 
+                   y = yield_kgha),
+               alpha = .8) +
+  geom_jitter(data = rcbd_dfw,
+               aes(x = krate_kgha, 
+                   y = yield_kgha),
+              shape = 21,
+              size = 3,
+              alpha = .6) +
+  # Adding letters
+  geom_label(data = rcbd_mix_pwc_k,
+            aes(x = krate_kgha, 
+                y = emmean, 
+                label = letter),
+            fill = "white") +
+  labs(x = "K rate (kg/ha)",
+       y = "Yield (kg/ha)") +
+  scale_fill_viridis_d(option = "A") +
+  theme(panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        legend.position = "none")
+
+```
+
+
+
