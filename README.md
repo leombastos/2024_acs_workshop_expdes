@@ -17,7 +17,7 @@ Follow the rendered script [here](https://leombastos.github.io/bastoslab/teachin
 Follow the recording [here](https://youtu.be/UYDQvEv65wA).  
 
 
-## **Interested in conding along during the workshop?**  
+## **Interested in coding along during the workshop?**  
 
 1. New to R and/or RStudio? Follow steps 1 and 2 of [these instructions](https://leombastos.github.io/bastoslab/teaching/2024-dsa/slides/lab01-prep.html) to install them before the workshop (if you want to be able to follow along).    
 
