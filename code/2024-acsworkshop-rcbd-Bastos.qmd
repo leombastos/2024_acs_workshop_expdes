@@ -84,6 +84,7 @@ Checking variable classes.
 ```{r glimpse}
 glimpse(rcbd_df)
 ```
+
 # c) Wrangling  
 Need to transform rep, N rate and K rate into factor (for analysis of variance).  
 
@@ -150,9 +151,13 @@ To account for more than one variance component (i.e., random effects and error)
 options(contrasts = c("contr.sum", "contr.poly"))
 
 # Model fitting
-rcbd_mix_mod 
+rcbd_mix_mod <- lmer(yield_kgha ~ nrate_kgha*krate_kgha +
+(1|rep),
+data = rcbd_dfw)
 
 rcbd_mix_mod
+
+rcbd_dfw
 ```
 
 # f) ANOVA table  
@@ -308,7 +313,7 @@ rcbd_mix_pwc_k <- cld(rcbd_mix_means_k,
 rcbd_mix_pwc_k
 ```
 
-# g) Final plots  
+# j) Final plots  
 Let's plot our results, including both **raw data** (for allowing our audience to inspect data distribution) and **statistical model summary (i.e., letter separation)** for inference purposes.    
 
 Let's make these plots publication ready.  

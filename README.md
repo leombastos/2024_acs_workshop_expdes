@@ -14,6 +14,8 @@ Follow the slide deck [here](https://leombastos.github.io/bastoslab/teaching/202
 
 Follow the rendered script [here](https://leombastos.github.io/bastoslab/teaching/2024-acs/2024-acsworkshop-rcbd-Bastos.html).  
 
+Follow the recording [here](https://youtu.be/UYDQvEv65wA).  
+
 
 ## **Interested in conding along during the workshop?**  
 
